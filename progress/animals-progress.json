@@ -1,0 +1,16 @@
+{
+  "2": {
+    "card_id": 2,
+    "interval_days": 1.0,
+    "ease_factor": 2.65,
+    "repetitions": 1,
+    "next_review": "2025-11-28T11:54:44.294488207Z"
+  },
+  "1": {
+    "card_id": 1,
+    "interval_days": 1.0,
+    "ease_factor": 2.65,
+    "repetitions": 1,
+    "next_review": "2025-11-28T11:54:39.997206828Z"
+  }
+}

@@ -1,0 +1,22 @@
+[package]
+name = "morflash-core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "morflash_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "morflash-gui"
+path = "src/bin/morflash-gui.rs"
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+eframe = { version = "0.27", features = ["default_fonts", "glow"] }
+rand = "0.8"
+rfd = "0.14"
+rodio = "0.17"
