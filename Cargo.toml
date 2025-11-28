@@ -20,3 +20,4 @@ eframe = { version = "0.27", features = ["default_fonts", "glow"] }
 rand = "0.8"
 rfd = "0.14"
 rodio = "0.17"
+image = { version = "0.25", default-features = false, features = ["png"] }

@@ -1,19 +1,19 @@
 // src/import/mod.rs
 
-mod txt;
-mod json;
 mod csv;
+mod json;
 mod markdown;
+mod txt;
 mod xml;
 
-pub use txt::deck_from_paste;
-pub use json::deck_from_json_deck;
 pub use csv::deck_from_csv;
+pub use json::deck_from_json_deck;
 pub use markdown::deck_from_markdown;
+pub use txt::deck_from_paste;
 pub use xml::deck_from_xml;
 
-use std::path::Path;
 use crate::model::Deck;
+use std::path::Path;
 
 /// High-level entry point: pick importer based on file extension.
 pub fn import_deck_file(path: &Path) -> anyhow::Result<Deck> {
@@ -33,7 +33,9 @@ pub fn import_deck_file(path: &Path) -> anyhow::Result<Deck> {
         "txt" | _ => {
             // default: treat as "Term - Definition" per line
             Ok(deck_from_paste(
-                path.file_stem().and_then(|s| s.to_str()).unwrap_or("Imported deck"),
+                path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("Imported deck"),
                 None,
                 &content,
             ))

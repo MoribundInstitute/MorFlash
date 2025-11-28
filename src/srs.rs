@@ -3,11 +3,7 @@ use chrono::{DateTime, Duration, Utc};
 use crate::model::ReviewState;
 
 /// Ratings: 0=Again, 1=Hard, 2=Good, 3=Easy
-pub fn update_review_state(
-    mut state: ReviewState,
-    rating: u8,
-    now: DateTime<Utc>,
-) -> ReviewState {
+pub fn update_review_state(mut state: ReviewState, rating: u8, now: DateTime<Utc>) -> ReviewState {
     // interval logic
     if rating == 0 {
         state.repetitions = 0;
