@@ -1,3 +1,4 @@
 assets/sfx/fahhhhh.wav
 assets/sfx/Yes.wav
 assets/sfx/Yes-Correct.wav
+assets/sfx/Correct-Tone.ogg

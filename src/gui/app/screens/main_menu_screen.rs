@@ -1,6 +1,6 @@
 // src/gui/app/main_menu_screen.rs
 use eframe::egui;
-use egui::{FontId, RichText};
+use egui::{Color32, FontId, RichText, TextureHandle};
 use std::path::PathBuf;
 
 use crate::gui::menu_theme::MenuTheme;
@@ -16,11 +16,13 @@ pub fn draw_main_menu(
     ui: &mut egui::Ui,
     deck_paths: &[PathBuf],
     focus_index: usize,
+    mor_button_tex: Option<&TextureHandle>,
+    critter_tex: Option<&TextureHandle>, // NEW
 ) -> MainMenuAction {
-    // Apply the PC-98 style menu theme to this screen
     MenuTheme::apply_to_ctx(ui.ctx());
 
     let mut action = MainMenuAction::None;
+    let mut critter_target: Option<egui::Rect> = None;
 
     let available = ui.available_size();
     let panel_width = (available.x * 0.7).clamp(600.0, 1000.0);
@@ -28,7 +30,6 @@ pub fn draw_main_menu(
     ui.vertical_centered(|ui| {
         ui.add_space(32.0);
 
-        // ===== Title =====
         ui.label(
             RichText::new("MorFlash")
                 .font(FontId::proportional(48.0))
@@ -38,7 +39,6 @@ pub fn draw_main_menu(
 
         ui.add_space(28.0);
 
-        // ===== Main strip / panel =====
         egui::Frame::none()
             .fill(MenuTheme::PANEL_BG)
             .stroke(egui::Stroke::new(1.5, MenuTheme::BUTTON_OUTLINE))
@@ -56,7 +56,6 @@ pub fn draw_main_menu(
                     ui.label(RichText::new("Choose a deck").font(FontId::proportional(24.0)));
                     ui.add_space(18.0);
 
-                    // Up to 3 decks for now, laid out in a column
                     for (idx, path) in deck_paths.iter().take(3).enumerate() {
                         let name = path
                             .file_stem()
@@ -64,20 +63,27 @@ pub fn draw_main_menu(
                             .to_string_lossy()
                             .to_string();
 
-                        let is_focused = idx == focus_index;
+                        let deck_min_width = 240.0;
 
-                        // Base text
-                        let mut text = RichText::new(name).font(FontId::proportional(22.0));
+                        let (response, rect) = draw_menu_button(
+                            ui,
+                            &name,
+                            mor_button_tex,
+                            deck_min_width,
+                        );
 
-                        // Highlight focused entry with stronger style
-                        if is_focused {
-                            text = text.strong().underline();
+                        // "Most recent input": hover wins, otherwise focus_index
+                        let is_active = if response.hovered() {
+                            true
+                        } else {
+                            idx == focus_index
+                        };
+
+                        if is_active {
+                            critter_target = Some(rect);
                         }
 
-                        let button =
-                            egui::Button::new(text).min_size(egui::vec2(panel_width * 0.5, 44.0));
-
-                        if ui.add(button).clicked() {
+                        if response.clicked() {
                             action = MainMenuAction::OpenDeck(path.clone());
                         }
 
@@ -88,30 +94,115 @@ pub fn draw_main_menu(
 
         ui.add_space(32.0);
 
-        // ===== Options button =====
         let deck_count = deck_paths.len().min(3);
-        let options_index = deck_count; // Options lives "after" the last deck
+        let options_index = deck_count;
 
-        let mut options_text = RichText::new("⚙  Options").font(FontId::proportional(24.0));
+        let (options_response, options_rect) = draw_menu_button(
+            ui,
+            "⚙  Options",
+            mor_button_tex,
+            220.0,
+        );
 
-        if focus_index == options_index {
-            options_text = options_text.strong().underline();
+        let options_active = if options_response.hovered() {
+            true
+        } else {
+            focus_index == options_index
+        };
+
+        if options_active {
+            critter_target = Some(options_rect);
         }
 
-        let options_button = egui::Button::new(options_text).min_size(egui::vec2(220.0, 46.0));
-
-        if ui.add(options_button).clicked() {
+        if options_response.clicked() {
             action = MainMenuAction::OpenOptions;
         }
 
         ui.add_space(16.0);
 
-        // ===== Tip text =====
         ui.label(
             RichText::new("Tip: you can adjust sound and other settings in Options.")
                 .font(FontId::proportional(16.0)),
         );
     });
 
+    // Draw critter sprite next to the active button (on top of everything)
+    if let (Some(tex), Some(target)) = (critter_tex, critter_target) {
+        let size = egui::vec2(48.0, 48.0);
+        // Right side of the button; change to left if you prefer
+        let pos = egui::pos2(
+    target.left() - size.x - 12.0,
+    target.center().y - size.y / 2.0,
+);
+        let rect = egui::Rect::from_min_size(pos, size);
+
+        ui.painter().image(
+            tex.id(),
+            rect,
+            egui::Rect::from_min_max(
+                egui::pos2(0.0, 0.0),
+                egui::pos2(1.0, 1.0),
+            ),
+            Color32::WHITE,
+        );
+    }
+
     action
+}
+
+// returns (Response, button_rect)
+fn draw_menu_button(
+    ui: &mut egui::Ui,
+    label: &str,
+    mor_button_tex: Option<&TextureHandle>,
+    min_width: f32,
+) -> (egui::Response, egui::Rect) {
+    let font_id = FontId::proportional(22.0);
+
+    if mor_button_tex.is_none() {
+        let text = RichText::new(label.to_string()).font(font_id);
+        let button = egui::Button::new(text).min_size(egui::vec2(min_width, 44.0));
+        let response = ui.add(button);
+        let rect = response.rect;
+        return (response, rect);
+    }
+
+    let tex = mor_button_tex.unwrap();
+
+    let galley = ui.fonts(|f| {
+        f.layout_no_wrap(
+            label.to_string(),
+            font_id.clone(),
+            Color32::WHITE,
+        )
+    });
+    let sz = galley.size();
+
+    let padding = egui::vec2(24.0, 8.0);
+    let desired = egui::vec2(
+        sz.x.max(min_width) + 2.0 * padding.x,
+        sz.y + 2.0 * padding.y,
+    );
+
+    let (rect, response) = ui.allocate_exact_size(desired, egui::Sense::click());
+    let painter = ui.painter();
+
+    painter.image(
+        tex.id(),
+        rect,
+        egui::Rect::from_min_max(
+            egui::pos2(0.0, 0.0),
+            egui::pos2(1.0, 1.0),
+        ),
+        Color32::WHITE,
+    );
+
+    let text_pos = egui::pos2(
+        rect.center().x - sz.x / 2.0,
+        rect.center().y - sz.y / 2.0,
+    );
+
+    painter.galley(text_pos, galley, Color32::WHITE);
+
+    (response, rect)
 }

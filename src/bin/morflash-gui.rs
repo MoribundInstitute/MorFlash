@@ -22,6 +22,6 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         app_title,
         native_options,
-        Box::new(|cc| Box::new(MorflashGui::new(cc))),
+        Box::new(|cc| Ok(Box::new(MorflashGui::new(cc)))),
     )
 }
