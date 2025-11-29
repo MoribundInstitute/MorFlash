@@ -1,3 +1,4 @@
+// src/gui/app/main_menu_screen.rs
 use eframe::egui;
 use egui::{FontId, RichText};
 use std::path::PathBuf;
@@ -11,7 +12,11 @@ pub enum MainMenuAction {
     OpenOptions,
 }
 
-pub fn draw_main_menu(ui: &mut egui::Ui, deck_paths: &[PathBuf]) -> MainMenuAction {
+pub fn draw_main_menu(
+    ui: &mut egui::Ui,
+    deck_paths: &[PathBuf],
+    focus_index: usize,
+) -> MainMenuAction {
     // Apply the PC-98 style menu theme to this screen
     MenuTheme::apply_to_ctx(ui.ctx());
 
@@ -52,16 +57,25 @@ pub fn draw_main_menu(ui: &mut egui::Ui, deck_paths: &[PathBuf]) -> MainMenuActi
                     ui.add_space(18.0);
 
                     // Up to 3 decks for now, laid out in a column
-                    for path in deck_paths.iter().take(3) {
+                    for (idx, path) in deck_paths.iter().take(3).enumerate() {
                         let name = path
                             .file_stem()
                             .unwrap_or_default()
                             .to_string_lossy()
                             .to_string();
 
+                        let is_focused = idx == focus_index;
+
+                        // Base text
+                        let mut text = RichText::new(name).font(FontId::proportional(22.0));
+
+                        // Highlight focused entry with stronger style
+                        if is_focused {
+                            text = text.strong().underline();
+                        }
+
                         let button =
-                            egui::Button::new(RichText::new(name).font(FontId::proportional(22.0)))
-                                .min_size(egui::vec2(panel_width * 0.5, 44.0));
+                            egui::Button::new(text).min_size(egui::vec2(panel_width * 0.5, 44.0));
 
                         if ui.add(button).clicked() {
                             action = MainMenuAction::OpenDeck(path.clone());
@@ -75,9 +89,16 @@ pub fn draw_main_menu(ui: &mut egui::Ui, deck_paths: &[PathBuf]) -> MainMenuActi
         ui.add_space(32.0);
 
         // ===== Options button =====
-        let options_button =
-            egui::Button::new(RichText::new("⚙  Options").font(FontId::proportional(24.0)))
-                .min_size(egui::vec2(220.0, 46.0));
+        let deck_count = deck_paths.len().min(3);
+        let options_index = deck_count; // Options lives "after" the last deck
+
+        let mut options_text = RichText::new("⚙  Options").font(FontId::proportional(24.0));
+
+        if focus_index == options_index {
+            options_text = options_text.strong().underline();
+        }
+
+        let options_button = egui::Button::new(options_text).min_size(egui::vec2(220.0, 46.0));
 
         if ui.add(options_button).clicked() {
             action = MainMenuAction::OpenOptions;

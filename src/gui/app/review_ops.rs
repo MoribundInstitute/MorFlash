@@ -4,7 +4,6 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 
 use super::MorflashGui;
-use crate::gui::sound::play_sound;
 use crate::model::Card;
 use crate::srs::{is_due, update_review_state};
 
@@ -25,6 +24,12 @@ impl MorflashGui {
             self.current_card_id = None;
             self.options.clear();
             self.feedback = "No more cards due right now. 🎉".to_string();
+
+            if let Some(ref sm) = self.sound {
+                if self.options_state.sound_enabled {
+                    sm.play("finish");
+                }
+            }
         }
     }
 
@@ -67,13 +72,11 @@ impl MorflashGui {
                 self.last_answer_correct = Some(true);
                 self.correct_term = Some(card.term.clone());
                 self.wrong_term = None;
-                play_sound("assets/sfx/Correct-Tone.wav");
             } else {
                 self.feedback = format!("✗ Wrong. Correct answer: {}", card.term);
                 self.last_answer_correct = Some(false);
                 self.correct_term = Some(card.term.clone());
                 self.wrong_term = Some(chosen_term.to_string());
-                play_sound("assets/sfx/Incorrect-Tone.wav");
             }
 
             // SRS update

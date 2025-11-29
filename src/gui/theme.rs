@@ -1,3 +1,5 @@
+// src/gui/theme.rs
+use crate::gui::app::screens::options_screen::FontChoice;
 use eframe::egui;
 
 pub struct Theme;
@@ -51,42 +53,100 @@ impl Theme {
     }
 
     // ===============================================================
-    //  APPLY THEME + OPTIONAL PUBLIC PIXEL FONT
+    //  APPLY THEME (COLORS + FONTS)
     // ===============================================================
-    /// `use_pixel_font = true` → install PublicPixel as default.
-    /// `use_pixel_font = false` → use egui's default system fonts.
-    pub fn apply_to_ctx(ctx: &egui::Context, use_pixel_font: bool) {
-        if use_pixel_font {
-            Self::install_public_pixel_font(ctx);
-        } else {
-            // reset to default fonts
-            let fonts = egui::FontDefinitions::default();
-            ctx.set_fonts(fonts);
-        }
 
+    /// Apply visuals and fonts based on the current font choice.
+    pub fn apply_to_ctx(
+        ctx: &egui::Context,
+        font_choice: FontChoice,
+        custom_font_path: Option<&str>,
+    ) {
+        Self::apply_fonts(ctx, font_choice, custom_font_path);
         Self::apply_colors(ctx);
     }
 
-    /// Loads PublicPixel.ttf and sets it as the default font
-    fn install_public_pixel_font(ctx: &egui::Context) {
+    fn apply_fonts(ctx: &egui::Context, font_choice: FontChoice, custom_font_path: Option<&str>) {
         let mut fonts = egui::FontDefinitions::default();
 
-        fonts.font_data.insert(
-            "public_pixel".to_owned(),
-            egui::FontData::from_static(include_bytes!("../../assets/fonts/PublicPixel.ttf")),
-        );
+        match font_choice {
+            FontChoice::MorflashSerif => {
+                // Cormorant Garamond (bundled)
+                fonts.font_data.insert(
+                    "morflash_serif".to_owned(),
+                    egui::FontData::from_static(include_bytes!(
+                        "../../assets/fonts/CormorantGaramond.ttf"
+                    )),
+                );
+                fonts
+                    .families
+                    .entry(egui::FontFamily::Proportional)
+                    .or_default()
+                    .insert(0, "morflash_serif".to_owned());
+                fonts
+                    .families
+                    .entry(egui::FontFamily::Monospace)
+                    .or_default()
+                    .insert(0, "morflash_serif".to_owned());
+            }
 
-        fonts
-            .families
-            .entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(0, "public_pixel".to_owned());
+            FontChoice::Pixel => {
+                fonts.font_data.insert(
+                    "public_pixel".to_owned(),
+                    egui::FontData::from_static(include_bytes!(
+                        "../../assets/fonts/PublicPixel.ttf"
+                    )),
+                );
+                fonts
+                    .families
+                    .entry(egui::FontFamily::Proportional)
+                    .or_default()
+                    .insert(0, "public_pixel".to_owned());
+                fonts
+                    .families
+                    .entry(egui::FontFamily::Monospace)
+                    .or_default()
+                    .insert(0, "public_pixel".to_owned());
+            }
 
-        fonts
-            .families
-            .entry(egui::FontFamily::Monospace)
-            .or_default()
-            .insert(0, "public_pixel".to_owned());
+            FontChoice::System => {
+                // Use egui's default font stack.
+                ctx.set_fonts(fonts);
+                return;
+            }
+
+            FontChoice::Custom => {
+                let Some(path) = custom_font_path else {
+                    // No path yet → fall back to system fonts.
+                    ctx.set_fonts(fonts);
+                    return;
+                };
+
+                match std::fs::read(path) {
+                    Ok(bytes) => {
+                        fonts
+                            .font_data
+                            .insert("custom_font".to_owned(), egui::FontData::from_owned(bytes));
+                        fonts
+                            .families
+                            .entry(egui::FontFamily::Proportional)
+                            .or_default()
+                            .insert(0, "custom_font".to_owned());
+                        fonts
+                            .families
+                            .entry(egui::FontFamily::Monospace)
+                            .or_default()
+                            .insert(0, "custom_font".to_owned());
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to load custom font {path}: {e}");
+                        // Fall back to system fonts.
+                        ctx.set_fonts(fonts);
+                        return;
+                    }
+                }
+            }
+        }
 
         ctx.set_fonts(fonts);
     }

@@ -1,5 +1,6 @@
 use eframe::egui;
 
+use super::completion_screen;
 use crate::gui::theme::Theme;
 use crate::model::Card;
 
@@ -203,28 +204,7 @@ fn draw_study_screen_inner(
             // =======================
             // Finished / no-card state
             // =======================
-            ui.vertical_centered(|ui| {
-                ui.label(
-                    egui::RichText::new(feedback)
-                        .size(24.0)
-                        .color(Theme::CARD_TEXT),
-                );
-                ui.add_space(16.0);
-
-                let label = egui::RichText::new("← Back to deck list")
-                    .size(18.0)
-                    .color(Theme::BUTTON_TEXT);
-
-                let back_button = egui::Button::new(label)
-                    .min_size(egui::vec2(200.0, 40.0))
-                    .fill(Theme::BUTTON_FILL)
-                    .stroke(egui::Stroke::new(2.0, Theme::BUTTON_OUTLINE))
-                    .rounding(egui::Rounding::same(10.0));
-
-                if ui.add(back_button).clicked() {
-                    back_to_list = true;
-                }
-            });
+            back_to_list = completion_screen::draw_completion_screen(ui);
         }
     });
 
