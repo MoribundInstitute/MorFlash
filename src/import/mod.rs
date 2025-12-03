@@ -7,9 +7,9 @@ mod txt;
 mod xml;
 
 pub use csv::deck_from_csv;
-pub use json::deck_from_json_deck;
+pub use json::{deck_from_any_json, deck_from_json_deck};
 pub use markdown::deck_from_markdown;
-pub use txt::deck_from_paste;
+pub use txt::{deck_from_paste, deck_from_txt};
 pub use xml::deck_from_xml;
 
 use crate::model::Deck;
@@ -26,19 +26,22 @@ pub fn import_deck_file(path: &Path) -> anyhow::Result<Deck> {
     let content = std::fs::read_to_string(path)?;
 
     match ext.as_str() {
-        "json" => deck_from_json_deck(&content),
+        // Try all JSON shapes (full deck, cards array, map, etc.)
+        "json" => deck_from_any_json(&content),
+
         "csv" => deck_from_csv(&content),
+
         "md" | "markdown" => deck_from_markdown(&content),
+
         "xml" => deck_from_xml(&content),
-        "txt" | _ => {
-            // default: treat as "Term - Definition" per line
-            Ok(deck_from_paste(
-                path.file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("Imported deck"),
-                None,
-                &content,
-            ))
-        }
+
+        // default: treat as "Term - Definition" text
+        "txt" | _ => Ok(deck_from_paste(
+            path.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("Imported deck"),
+            None,
+            &content,
+        )),
     }
 }

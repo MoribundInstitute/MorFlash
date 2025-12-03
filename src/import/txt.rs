@@ -2,10 +2,9 @@
 
 use crate::model::{Card, Deck};
 
-/// Parse "Term - Definition" text into a Deck.
-pub fn deck_from_paste(name: &str, description: Option<String>, raw: &str) -> Deck {
+/// Core implementation: parse "Term - Definition" text into a Deck.
+pub fn deck_from_txt(name: &str, description: Option<String>, raw: &str) -> Deck {
     let mut cards = Vec::new();
-
     let mut next_id: u64 = 1;
 
     for line in raw.lines() {
@@ -40,4 +39,9 @@ pub fn deck_from_paste(name: &str, description: Option<String>, raw: &str) -> De
         description,
         cards,
     }
+}
+
+/// Backwards-compatible name used by older code.
+pub fn deck_from_paste(name: &str, description: Option<String>, raw: &str) -> Deck {
+    deck_from_txt(name, description, raw)
 }

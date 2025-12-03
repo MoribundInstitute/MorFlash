@@ -1,7 +1,7 @@
 // src/gui/sound.rs
 
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
-use std::{collections::HashMap, io::Cursor, path::{Path, PathBuf}};
+use std::{collections::HashMap, io::Cursor, path::Path};
 
 pub type SoundId = String;
 
@@ -48,24 +48,37 @@ impl SoundManager {
         }
     }
 
-    pub fn load_core_sounds<P1, P2, P3>(
+    /// Load the core sounds used by the app:
+    /// - "correct"
+    /// - "wrong"
+    /// - optional "finish" (completion)
+    /// - "ui_select" (menu/UI selection)
+    pub fn load_core_sounds<P1, P2, P3, P4>(
         &mut self,
         correct_path: P1,
         incorrect_path: P2,
         complete_path: Option<P3>,
-    )
-    where
+        ui_select_path: P4,
+    ) where
         P1: AsRef<Path>,
         P2: AsRef<Path>,
         P3: AsRef<Path>,
+        P4: AsRef<Path>,
     {
+        // Clear any previously loaded sounds so we reload from scratch
         self.clear();
+
+        // Main quiz SFX
         self.load_sound("correct", correct_path);
         self.load_sound("wrong", incorrect_path);
 
         if let Some(p) = complete_path {
+            // You currently use the id "finish" here; keep that for compatibility.
             self.load_sound("finish", p);
         }
+
+        // NEW: UI select sound for menu navigation, etc.
+        self.load_sound("ui_select", ui_select_path);
     }
 
     pub fn play(&self, id: &str) {

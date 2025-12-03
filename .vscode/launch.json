@@ -1,0 +1,58 @@
+{
+    // For more information: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        
+        // ===============================
+        // Web (Chrome Debugging)
+        // ===============================
+        {
+            "name": "Launch Chrome (Web Debug)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:8080",
+            "webRoot": "${workspaceFolder}"
+        },
+
+        // ===============================
+        // Rust / CodeLLDB Debugging
+        // ===============================
+
+        {
+            "name": "Rust: Debug unit tests in library (morflash-core)",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": ["test"]
+            },
+            "cwd": "${workspaceFolder}",
+            "sourceLanguages": ["rust"],
+            "console": "integratedTerminal"
+        },
+
+        {
+            "name": "Rust: Debug morflash-gui",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": ["run", "--bin", "morflash-gui"]
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "sourceLanguages": ["rust"],
+            "console": "integratedTerminal"
+        },
+
+        {
+            "name": "Rust: Debug unit tests in morflash-gui",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": ["test", "--bin", "morflash-gui"]
+            },
+            "cwd": "${workspaceFolder}",
+            "sourceLanguages": ["rust"],
+            "console": "integratedTerminal"
+        }
+    ]
+}

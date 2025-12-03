@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use super::completion_screen;
+use crate::gui::app::screens::options_screen::StudyOptions;
 use crate::gui::theme::Theme;
 use crate::model::Card;
 
@@ -8,7 +8,7 @@ use crate::model::Card;
 /// - returns (clicked_term, back_to_list)
 type StudyResult = (Option<String>, bool);
 
-/// Convenience wrapper:
+/// Public entry point used from `app/mod.rs`.
 pub fn draw_study_screen(
     ui: &mut egui::Ui,
     current_card: Option<&Card>,
@@ -19,9 +19,12 @@ pub fn draw_study_screen(
     progress: f32,
     reviewed: usize,
     total: usize,
+    study_opts: &StudyOptions,
 ) -> StudyResult {
-    // We no longer care about fullscreen/windowed here;
-    // the outer `egui::Window` in app/mod.rs handles size.
+    // We keep this parameter so the call site compiles,
+    // but the card background color is handled in app/mod.rs.
+    let _ = study_opts;
+
     draw_study_screen_inner(
         ui,
         current_card,
@@ -201,10 +204,14 @@ fn draw_study_screen_inner(
                 });
             });
         } else {
-            // =======================
-            // Finished / no-card state
-            // =======================
-            back_to_list = completion_screen::draw_completion_screen(ui);
+            // No current card (e.g. no deck loaded yet)
+            ui.vertical_centered(|ui| {
+                ui.label(
+                    egui::RichText::new("No card loaded.")
+                        .size(20.0)
+                        .color(Theme::CARD_TEXT),
+                );
+            });
         }
     });
 
