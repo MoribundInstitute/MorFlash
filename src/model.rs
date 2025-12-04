@@ -17,6 +17,18 @@ pub struct Card {
     pub definition: String,
 }
 
+impl Card {
+    /// Convenience constructor so callers don't need to use struct literal syntax
+    /// everywhere or rely on `Default`.
+    pub fn new(id: u64, term: impl Into<String>, definition: impl Into<String>) -> Self {
+        Self {
+            id,
+            term: term.into(),
+            definition: definition.into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewState {
     pub card_id: u64,

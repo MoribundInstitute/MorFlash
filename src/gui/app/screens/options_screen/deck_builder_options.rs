@@ -1,7 +1,25 @@
 // src/gui/app/screens/options_screen/deck_builder_options.rs
 use eframe::egui;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LanguageEntry {
+    /// Human-readable language name, e.g. "English".
+    pub name: String,
+    /// Language code, e.g. "en", "ja".
+    pub code: String,
+    /// Whether this language is available in the Deck Builder dropdowns.
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum NewCardMode {
+    /// New cards start completely blank.
+    Blank,
+    /// New cards copy the previous card's structure/fields.
+    ClonePrevious,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DeckBuilderOptions {
     /// Automatically save the deck file while editing.
     pub autosave_enabled: bool,
@@ -18,12 +36,9 @@ pub struct DeckBuilderOptions {
 
     /// Warn the user before closing the builder when unsaved changes exist.
     pub warn_on_unsaved_exit: bool,
-}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NewCardMode {
-    Blank,
-    ClonePrevious,
+    /// Languages that can appear in the Deck Builder term/definition dropdowns.
+    pub languages: Vec<LanguageEntry>,
 }
 
 impl Default for DeckBuilderOptions {
@@ -34,6 +49,39 @@ impl Default for DeckBuilderOptions {
             new_card_mode: NewCardMode::Blank,
             show_advanced_fields: false,
             warn_on_unsaved_exit: true,
+            languages: vec![
+                LanguageEntry {
+                    name: "English".into(),
+                    code: "en".into(),
+                    enabled: true,
+                },
+                LanguageEntry {
+                    name: "Japanese".into(),
+                    code: "ja".into(),
+                    enabled: true,
+                },
+                LanguageEntry {
+                    name: "Korean".into(),
+                    code: "ko".into(),
+                    enabled: false,
+                },
+                LanguageEntry {
+                    name: "Chinese".into(),
+                    code: "zh".into(),
+                    enabled: false,
+                },
+                LanguageEntry {
+                    name: "French".into(),
+                    code: "fr".into(),
+                    enabled: false,
+                },
+                LanguageEntry {
+                    name: "Spanish".into(),
+                    code: "es".into(),
+                    enabled: false,
+                },
+                // Add more defaults here if you like.
+            ],
         }
     }
 }
@@ -53,7 +101,7 @@ pub fn draw_deck_builder_options_section(
             ui.label("Autosave interval (seconds):");
             ui.add(
                 egui::DragValue::new(&mut opts.autosave_interval_secs)
-                    .clamp_range(2.0..=120.0)
+                    .range(2.0..=120.0)
                     .speed(0.2),
             );
         });
@@ -83,4 +131,22 @@ pub fn draw_deck_builder_options_section(
         &mut opts.warn_on_unsaved_exit,
         "Warn before closing builder if there are unsaved changes",
     );
+    ui.add_space(16.0);
+
+    // === Language availability ===
+    ui.collapsing("Languages available in Deck Builder", |ui| {
+        ui.label("Toggle which languages appear in the card language dropdowns.");
+
+        egui::ScrollArea::vertical()
+            .max_height(180.0)
+            .show(ui, |ui| {
+                for lang in &mut opts.languages {
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut lang.enabled, "");
+                        ui.label(&lang.name);
+                        ui.label(format!("({})", lang.code));
+                    });
+                }
+            });
+    });
 }

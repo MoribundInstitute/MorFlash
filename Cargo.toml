@@ -24,3 +24,6 @@ rodio = { version = "0.17", features = ["vorbis"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 roxmltree = "0.19"
 csv = "1"
+zip = "0.6"
+rusqlite = { version = "0.31", features = ["bundled"] }
+tempfile = "3"

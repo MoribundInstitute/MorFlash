@@ -1,3 +1,5 @@
+// src/import/csv.rs
+
 use crate::model::{Card, Deck};
 
 /// Flexible CSV importer:
@@ -24,7 +26,7 @@ pub fn deck_from_csv(raw: &str) -> anyhow::Result<Deck> {
 fn deck_from_flexible_csv(raw: &str) -> anyhow::Result<Deck> {
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(false) // we’ll detect headers ourselves
-        .flexible(true) // allow varying numbers of columns
+        .flexible(true)     // allow varying numbers of columns
         .from_reader(raw.as_bytes());
 
     let mut cards = Vec::new();

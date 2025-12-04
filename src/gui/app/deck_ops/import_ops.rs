@@ -7,14 +7,14 @@ use crate::gui::app::MorflashGui;
 use crate::import;
 
 impl MorflashGui {
-    /// Import a deck file (json / csv / txt / etc.), normalize it into a `Deck`,
-    /// and save it as JSON under `decks/`, then refresh the deck list.
     pub(crate) fn import_deck(&mut self) {
         if let Some(path) = rfd::FileDialog::new()
+            .add_filter("MorFlash decks", &["mflash"])
             .add_filter(
-                "Deck files",
-                &["json", "csv", "txt", "md", "markdown", "xml"],
+                "Flashcard decks",
+                &["json", "txt", "csv", "md", "markdown", "xml"],
             )
+            .add_filter("Anki (.apkg)", &["apkg"])
             .pick_file()
         {
             let decks_dir = Path::new("decks");

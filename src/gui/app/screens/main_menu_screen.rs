@@ -9,6 +9,7 @@ pub enum MainMenuAction {
     None,
     ChooseDeck,
     OpenDeckBuilder,
+    OpenControls,
     OpenOptions,
 }
 
@@ -31,6 +32,7 @@ pub fn draw_main_menu(
     let choose_deck_index = 0;
     let deck_builder_index = 1;
     let options_index = 2;
+    let controls_index = 3;
 
     ui.vertical_centered(|ui| {
         ui.add_space(32.0);
@@ -93,6 +95,23 @@ pub fn draw_main_menu(
             action = MainMenuAction::OpenOptions;
         }
 
+        ui.add_space(18.0);
+
+        // --- Controls button ---
+        let (controls_response, controls_rect) =
+            draw_menu_button(ui, "🎮 Controls", mor_button_tex, 260.0);
+
+        let controls_active =
+            controls_response.hovered() || focus_index == controls_index;
+
+        if controls_active {
+            critter_target = Some(controls_rect);
+        }
+
+        if controls_response.clicked() {
+            action = MainMenuAction::OpenControls;
+        }
+
         ui.add_space(24.0);
 
         ui.label(
@@ -133,6 +152,7 @@ fn draw_menu_button(
 ) -> (egui::Response, egui::Rect) {
     let font_id = FontId::proportional(22.0);
 
+    // Fallback: plain egui button if we don't have a texture
     if mor_button_tex.is_none() {
         let text = RichText::new(label.to_string()).font(font_id);
         let button = egui::Button::new(text).min_size(egui::vec2(min_width, 44.0));
@@ -143,7 +163,9 @@ fn draw_menu_button(
 
     let tex = mor_button_tex.unwrap();
 
-    let galley = ui.fonts(|f| f.layout_no_wrap(label.to_string(), font_id.clone(), Color32::WHITE));
+    let galley = ui.fonts(|f| {
+        f.layout_no_wrap(label.to_string(), font_id.clone(), Color32::WHITE)
+    });
     let sz = galley.size();
 
     let padding = egui::vec2(24.0, 8.0);
@@ -158,11 +180,17 @@ fn draw_menu_button(
     painter.image(
         tex.id(),
         rect,
-        egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+        egui::Rect::from_min_max(
+            egui::pos2(0.0, 0.0),
+            egui::pos2(1.0, 1.0),
+        ),
         Color32::WHITE,
     );
 
-    let text_pos = egui::pos2(rect.center().x - sz.x / 2.0, rect.center().y - sz.y / 2.0);
+    let text_pos = egui::pos2(
+        rect.center().x - sz.x / 2.0,
+        rect.center().y - sz.y / 2.0,
+    );
 
     painter.galley(text_pos, galley, Color32::WHITE);
 

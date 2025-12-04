@@ -54,7 +54,7 @@ pub fn draw_completion_options_section(
                 ui.label("Auto-return delay (seconds):");
                 ui.add(
                     egui::DragValue::new(&mut completion.auto_return_delay_secs)
-                        .clamp_range(1.0..=30.0)
+                        .range(1.0..=30.0)
                         .speed(0.1),
                 );
             });

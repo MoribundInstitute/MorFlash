@@ -1,13 +1,17 @@
 {
   "file_name": "",
   "tags": "",
-  "media_path": null,
+  "media_path": "",
   "cards": [
     {
       "term": "",
       "definition": "",
+      "term_lang": "ja",
+      "def_lang": "ja",
       "hyperlink": "",
-      "media_path": null
+      "media_path": "",
+      "tags": [],
+      "examples": []
     }
   ]
 }

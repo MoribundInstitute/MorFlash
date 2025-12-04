@@ -5,3 +5,4 @@ pub mod deck_builder_screen;
 pub mod main_menu_screen;
 pub mod options_screen;
 pub mod study_screen;
+pub mod controls_screen;
