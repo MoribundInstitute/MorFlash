@@ -4,6 +4,7 @@ use eframe::{
     App,
 };
 use rfd::FileDialog;
+use std::time::Instant;
 use std::{collections::HashMap, path::PathBuf};
 mod deck_ops;
 pub mod screens;
@@ -12,7 +13,7 @@ use screens::{
     completion_screen, deck_builder_screen, main_menu_screen, options_screen, study_screen,
 };
 
-use crate::gui::{sound::SoundManager, theme::Theme};
+use crate::gui::{sound::SoundManager, theme:: Theme};
 use crate::model::{Card, ReviewState};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,6 +32,13 @@ pub enum Screen {
     Options,
     Completion,
     DeckBuilder,
+}
+
+// Small toast-style notification used for save status, etc.
+struct SaveNotice {
+    message: String,
+    is_error: bool,
+    created_at: Instant,
 }
 
 pub struct MorflashGui {
@@ -60,7 +68,7 @@ pub struct MorflashGui {
     // Progress / auto-advance
     pub(crate) total_cards: usize,
     pub(crate) reviewed_count: usize,
-    pub(crate) pending_advance: bool,
+    pub(crate) pending_advance: bool, // FIXED: comma, not semicolon
     pub(crate) last_answer_time: Option<chrono::DateTime<chrono::Utc>>,
 
     // Visuals (tiled PC-98 background + zoom)
@@ -76,6 +84,9 @@ pub struct MorflashGui {
     pub(crate) sound: Option<SoundManager>,
     pub(crate) last_applied_sound_version: u64,
     pub(crate) celebration_played: bool,
+
+    // Small notification ("Saved deck", errors, etc.)
+    pub(crate) save_notice: Option<SaveNotice>,
 
     // UI textures
     pub(crate) mor_button_tex: Option<TextureHandle>,
@@ -95,55 +106,58 @@ impl MorflashGui {
         let sound = SoundManager::new(); // ✅ no Some(...)
 
 
-        let mut app = Self {
-            // navigation
-            screen: Screen::DeckList,
-            critter_tex: None,
-            container_tex: None,
-            main_menu_focus: 0,
-            last_main_menu_focus: 0,
+      let mut app = Self {
+    // navigation
+    screen: Screen::DeckList,
+    critter_tex: None,
+    container_tex: None,
+    main_menu_focus: 0,
+    last_main_menu_focus: 0,
 
-            // decks
-            deck_paths,
-            selected_deck_name: None,
+    // decks
+    deck_paths,
+    selected_deck_name: None,
 
-            // SRS
-            cards: Vec::new(),
-            states: HashMap::new(),
-            current_card_id: None,
+    // SRS
+    cards: Vec::new(),
+    states: HashMap::new(),
+    current_card_id: None,
 
-            // multiple choice
-            options: Vec::new(),
-            feedback: String::new(),
-            last_answer_correct: None,
-            correct_term: None,
-            wrong_term: None,
+    // multiple choice
+    options: Vec::new(),
+    feedback: String::new(),
+    last_answer_correct: None,
+    correct_term: None,
+    wrong_term: None,
 
-            // progress / auto-advance
-            total_cards: 0,
-            reviewed_count: 0,
-            pending_advance: false,
-            last_answer_time: None,
+    // progress / auto-advance
+    total_cards: 0,
+    reviewed_count: 0,
+    pending_advance: false,
+    last_answer_time: None,
 
-            // visuals
-            bg_texture: None,
-            last_bg_key: None,
-            zoom: 1.0,
-            screen_mode: ScreenMode::Wide,
+    // visuals
+    bg_texture: None,
+    last_bg_key: None,
+    zoom: 1.0,
+    screen_mode: ScreenMode::Wide,
 
-            // options + sound
-            options_state,
-            sound,
-            last_applied_sound_version: 0,
-            celebration_played: false,
+    // options + sound
+    options_state,
+    sound,
+    last_applied_sound_version: 0,
+    celebration_played: false,
 
-            // textures
-            mor_button_tex: None,
+    // transient UI notification ("Saved deck", errors, etc.)
+    save_notice: None,
 
-            // screen-specific state
-            deck_builder_state: deck_builder_screen::DeckBuilderState::default(),
-            completion_state: completion_screen::CompletionState::default(),
-        };
+    // textures
+    mor_button_tex: None,
+
+    // screen-specific state
+    deck_builder_state: deck_builder_screen::DeckBuilderState::default(),
+    completion_state: completion_screen::CompletionState::default(),
+};
 
         app.load_mor_button_texture(&cc.egui_ctx);
         app.load_critter_texture(&cc.egui_ctx);
@@ -478,6 +492,46 @@ impl MorflashGui {
         }
     }
 }
+impl MorflashGui {
+    fn show_save_notice(&mut self, ctx: &egui::Context) {
+        use std::time::Duration;
+
+        let Some(notice) = &self.save_notice else {
+            return;
+        };
+
+        // Auto-hide after 3 seconds
+        if notice.created_at.elapsed() > Duration::from_secs(3) {
+            self.save_notice = None;
+            return;
+        }
+
+        egui::Area::new("save_notice".into())
+            .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-16.0, 16.0))
+            .show(ctx, |ui| {
+                let bg = if notice.is_error {
+                    egui::Color32::from_rgb(120, 30, 30)
+                } else {
+                    egui::Color32::from_rgb(30, 140, 80)
+                };
+
+                let text_color = egui::Color32::WHITE;
+
+                egui::Frame::none()
+                    .fill(bg)
+                    .rounding(egui::Rounding::same(10.0))
+                    .inner_margin(egui::Margin::symmetric(12.0, 8.0))
+                    .show(ui, |ui| {
+                        ui.label(
+                            egui::RichText::new(&notice.message)
+                                .color(text_color)
+                                .strong(),
+                        );
+                    });
+            });
+    }
+}
+
 // =====================
 // Main UI dispatcher
 // =====================
@@ -487,226 +541,263 @@ impl MorflashGui {
             .frame(egui::Frame::none().fill(egui::Color32::TRANSPARENT))
             .show(ctx, |ui| {
                 match self.screen {
-                   // MAIN MENU / DECK LIST
-Screen::MainMenu | Screen::DeckList => {
-    match main_menu_screen::draw_main_menu(
-        ui,
-        self.main_menu_focus,
-        self.mor_button_tex.as_ref(),
-        self.critter_tex.as_ref(),
-        &self.options_state.main_menu,
-    ) {
-        main_menu_screen::MainMenuAction::ChooseDeck => {
-            // Prefer a local "decks" directory if it exists
-            let decks_dir = std::path::Path::new("decks");
+                    // =========================
+                    // MAIN MENU / DECK LIST
+                    // =========================
+                    Screen::MainMenu | Screen::DeckList => {
+                        match main_menu_screen::draw_main_menu(
+                            ui,
+                            self.main_menu_focus,
+                            self.mor_button_tex.as_ref(),
+                            self.critter_tex.as_ref(),
+                            &self.options_state.main_menu,
+                        ) {
+                            main_menu_screen::MainMenuAction::ChooseDeck => {
+                                // Prefer a local "decks" directory if it exists
+                                let decks_dir = std::path::Path::new("decks");
 
-            let mut dialog = FileDialog::new()
-                .add_filter("MorFlash decks", &["json", "mflash"]);
+                                let mut dialog = FileDialog::new()
+                                    .add_filter("MorFlash decks", &["json", "mflash"]);
 
-            if decks_dir.exists() {
-                dialog = dialog.set_directory(decks_dir);
-            }
+                                if decks_dir.exists() {
+                                    dialog = dialog.set_directory(decks_dir);
+                                }
 
-            if let Some(path) = dialog.pick_file() {
-                self.celebration_played = false;
-                self.load_deck(path.as_path());
-                self.screen = Screen::Study;
-            }
-        }
-        main_menu_screen::MainMenuAction::OpenDeckBuilder => {
-            self.screen = Screen::DeckBuilder;
-            self.main_menu_focus = 0;
-            self.last_main_menu_focus = 0;
-        }
-        main_menu_screen::MainMenuAction::OpenOptions => {
-            self.screen = Screen::Options;
-            self.main_menu_focus = 0;
-            self.last_main_menu_focus = 0;
-        }
-        main_menu_screen::MainMenuAction::None => {}
-    }
-}
-                   // OPTIONS
-Screen::Options => {
-    // Draw the options UI (mutates self.options_state in-place).
-    let save_and_exit = options_screen::draw_options(
-        ui,
-        &mut self.options_state,
-        self.mor_button_tex.as_ref(),
-    );
-
-    // Esc should also act like "Save & Exit".
-    let esc_pressed = ctx.input(|i| i.key_pressed(egui::Key::Escape));
-
-    if save_and_exit || esc_pressed {
-        // Go back to main menu.
-        self.screen = Screen::MainMenu;
-        self.main_menu_focus = 0;
-        self.last_main_menu_focus = 0;
-    }
-}
-
-                    // STUDY
-Screen::Study => {
-    let current_card = self
-        .current_card_id
-        .and_then(|id| self.cards.iter().find(|c| c.id == id));
-
-    // completion transition
-    if current_card.is_none()
-        && self.total_cards > 0
-        && !self.celebration_played
-    {
-        if let Some(ref sm) = self.sound {
-            if self.options_state.global.sound_enabled {
-                sm.play("complete");
-            }
-        }
-        self.celebration_played = true;
-        self.screen = Screen::Completion;
-        return;
-    }
-
-    let correct_term = self.correct_term.as_deref();
-    let wrong_term = self.wrong_term.as_deref();
-    let progress = if self.total_cards == 0 {
-        0.0
-    } else {
-        self.reviewed_count as f32 / self.total_cards as f32
-    };
-
-    let mut clicked_term: Option<String> = None;
-    let mut back_to_list = false;
-
-    let card_fill = match self.options_state.study.card_color_mode {
-        options_screen::CardColorMode::BuiltIn => Theme::CARD_BG,
-        options_screen::CardColorMode::Custom => {
-            self.options_state.study.card_color
-        }
-    };
-
-    // ---- Window geometry: centered, good default size ----
-    let screen_rect = ctx.screen_rect();
-    let screen_w = screen_rect.width();
-    let screen_h = screen_rect.height();
-
-    // About 75% of the width, clamped to a nice range.
-    let default_w = (screen_w * 0.75).clamp(800.0, 1200.0);
-    // About 60% of the height, also clamped.
-    let default_h = (screen_h * 0.6).clamp(450.0, 800.0);
-
-    let default_rect = egui::Rect::from_center_size(
-        screen_rect.center(),
-        egui::vec2(default_w, default_h),
-    );
-
-    // Draggable, resizable study window that remembers size/position
-    egui::Window::new("StudyCard")
-        .title_bar(false)
-        .resizable(true)
-        .collapsible(false)
-        .movable(true)
-        .default_rect(default_rect)
-        .frame(
-            egui::Frame::none()
-                .fill(card_fill)
-                .rounding(egui::Rounding::same(Theme::CARD_ROUNDING))
-                .inner_margin(egui::Margin::symmetric(
-                    Theme::CARD_MARGIN,
-                    Theme::CARD_MARGIN - 4.0,
-                )),
-        )
-        .show(ctx, |ui_card| {
-            let (ct, back) = study_screen::draw_study_screen(
-                ui_card,
-                current_card,
-                &self.options,
-                correct_term,
-                wrong_term,
-                &self.feedback,
-                progress,
-                self.reviewed_count,
-                self.total_cards,
-                &self.options_state.study,
-            );
-
-            clicked_term = ct;
-            back_to_list = back;
-        });
-
-    // Back to deck list
-    if back_to_list {
-        self.screen = Screen::DeckList;
-        self.current_card_id = None;
-        self.feedback.clear();
-        self.last_answer_correct = None;
-        self.correct_term = None;
-        self.wrong_term = None;
-        self.pending_advance = false;
-        self.last_answer_time = None;
-        self.celebration_played = false;
-        self.main_menu_focus = 0;
-    }
-
-    // Handle answer click + sound
-    if let Some(term) = clicked_term {
-        if !self.pending_advance {
-            self.handle_answer(&term);
-            if let Some(ref sm) = self.sound {
-                if self.options_state.global.sound_enabled {
-                    if let Some(correct) = self.last_answer_correct {
-                        sm.play(if correct { "correct" } else { "wrong" });
+                                if let Some(path) = dialog.pick_file() {
+                                    self.celebration_played = false;
+                                    self.load_deck(path.as_path());
+                                    self.screen = Screen::Study;
+                                }
+                            }
+                            main_menu_screen::MainMenuAction::OpenDeckBuilder => {
+                                self.screen = Screen::DeckBuilder;
+                                self.main_menu_focus = 0;
+                                self.last_main_menu_focus = 0;
+                            }
+                            main_menu_screen::MainMenuAction::OpenOptions => {
+                                self.screen = Screen::Options;
+                                self.main_menu_focus = 0;
+                                self.last_main_menu_focus = 0;
+                            }
+                            main_menu_screen::MainMenuAction::None => {}
+                        }
                     }
-                }
-            }
-        }
-    }
-}
 
-          // COMPLETION
-Screen::Completion => {
-    let back_to_deck: bool = completion_screen::draw_completion_screen(
-        ui,
-        &mut self.completion_state,
-        &self.options_state.completion,
-        self.bg_texture.as_ref(),
-        || {
-            if let Some(sm) = self.sound.as_ref() {
-                sm.play("finish"); // <- use the "finish" sound id
-            }
-        },
-    );
+                    // =========================
+                    // OPTIONS
+                    // =========================
+                    Screen::Options => {
+                        // Draw the options UI (mutates self.options_state in-place).
+                        let save_and_exit = options_screen::draw_options(
+                            ui,
+                            &mut self.options_state,
+                            self.mor_button_tex.as_ref(),
+                        );
 
-    if back_to_deck {
-        self.screen = Screen::DeckList;
-        self.main_menu_focus = 0;
-        self.celebration_played = false;
-        self.completion_state.celebration_played = false;
-        self.current_card_id = None;
-        self.feedback.clear();
-        self.last_answer_correct = None;
-        self.correct_term = None;
-        self.wrong_term = None;
-        self.pending_advance = false;
-        self.last_answer_time = None;
-    }
-}
+                        // Esc should also act like "Save & Exit".
+                        let esc_pressed = ctx.input(|i| i.key_pressed(egui::Key::Escape));
 
+                        if save_and_exit || esc_pressed {
+                            // Go back to main menu.
+                            self.screen = Screen::MainMenu;
+                            self.main_menu_focus = 0;
+                            self.last_main_menu_focus = 0;
+                        }
+                    }
+
+                    // =========================
+                    // STUDY
+                    // =========================
+                    Screen::Study => {
+                        let current_card = self
+                            .current_card_id
+                            .and_then(|id| self.cards.iter().find(|c| c.id == id));
+
+                        // Completion transition
+                        if current_card.is_none()
+                            && self.total_cards > 0
+                            && !self.celebration_played
+                        {
+                            if let Some(ref sm) = self.sound {
+                                if self.options_state.global.sound_enabled {
+                                    sm.play("complete");
+                                }
+                            }
+                            self.celebration_played = true;
+                            self.screen = Screen::Completion;
+                            return;
+                        }
+
+                        let correct_term = self.correct_term.as_deref();
+                        let wrong_term = self.wrong_term.as_deref();
+                        let progress = if self.total_cards == 0 {
+                            0.0
+                        } else {
+                            self.reviewed_count as f32 / self.total_cards as f32
+                        };
+
+                        let mut clicked_term: Option<String> = None;
+                        let mut back_to_list = false;
+
+                        let card_fill = match self.options_state.study.card_color_mode {
+                            options_screen::CardColorMode::BuiltIn => Theme::CARD_BG,
+                            options_screen::CardColorMode::Custom => {
+                                self.options_state.study.card_color
+                            }
+                        };
+
+                        // ---- Window geometry: centered, good default size ----
+                        let screen_rect = ctx.screen_rect();
+                        let screen_w = screen_rect.width();
+                        let screen_h = screen_rect.height();
+
+                        // About 75% of the width, clamped to a nice range.
+                        let default_w = (screen_w * 0.75).clamp(800.0, 1200.0);
+                        // About 60% of the height, also clamped.
+                        let default_h = (screen_h * 0.6).clamp(450.0, 800.0);
+
+                        let default_rect = egui::Rect::from_center_size(
+                            screen_rect.center(),
+                            egui::vec2(default_w, default_h),
+                        );
+
+                        // Draggable, resizable study window that remembers size/position
+                        egui::Window::new("StudyCard")
+                            .title_bar(false)
+                            .resizable(true)
+                            .collapsible(false)
+                            .movable(true)
+                            .default_rect(default_rect)
+                            .frame(
+                                egui::Frame::none()
+                                    .fill(card_fill)
+                                    .rounding(egui::Rounding::same(Theme::CARD_ROUNDING))
+                                    .inner_margin(egui::Margin::symmetric(
+                                        Theme::CARD_MARGIN,
+                                        Theme::CARD_MARGIN - 4.0,
+                                    )),
+                            )
+                            .show(ctx, |ui_card| {
+                                let (ct, back) = study_screen::draw_study_screen(
+                                    ui_card,
+                                    current_card,
+                                    &self.options,
+                                    correct_term,
+                                    wrong_term,
+                                    &self.feedback,
+                                    progress,
+                                    self.reviewed_count,
+                                    self.total_cards,
+                                    &self.options_state.study,
+                                );
+
+                                clicked_term = ct;
+                                back_to_list = back;
+                            });
+
+                        // Back to deck list
+                        if back_to_list {
+                            self.screen = Screen::DeckList;
+                            self.current_card_id = None;
+                            self.feedback.clear();
+                            self.last_answer_correct = None;
+                            self.correct_term = None;
+                            self.wrong_term = None;
+                            self.pending_advance = false;
+                            self.last_answer_time = None;
+                            self.celebration_played = false;
+                            self.main_menu_focus = 0;
+                        }
+
+                        // Handle answer click + sound
+                        if let Some(term) = clicked_term {
+                            if !self.pending_advance {
+                                self.handle_answer(&term);
+                                if let Some(ref sm) = self.sound {
+                                    if self.options_state.global.sound_enabled {
+                                        if let Some(correct) = self.last_answer_correct {
+                                            sm.play(if correct { "correct" } else { "wrong" });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // =========================
+                    // COMPLETION
+                    // =========================
+                    Screen::Completion => {
+                        let back_to_deck: bool = completion_screen::draw_completion_screen(
+                            ui,
+                            &mut self.completion_state,
+                            &self.options_state.completion,
+                            self.bg_texture.as_ref(),
+                            || {
+                                if let Some(sm) = self.sound.as_ref() {
+                                    sm.play("finish"); // <- use the "finish" sound id
+                                }
+                            },
+                        );
+
+                        if back_to_deck {
+                            self.screen = Screen::DeckList;
+                            self.main_menu_focus = 0;
+                            self.celebration_played = false;
+                            self.completion_state.celebration_played = false;
+                            self.current_card_id = None;
+                            self.feedback.clear();
+                            self.last_answer_correct = None;
+                            self.correct_term = None;
+                            self.wrong_term = None;
+                            self.pending_advance = false;
+                            self.last_answer_time = None;
+                        }
+                    }
+
+                    // =========================
                     // DECK BUILDER
+                    // =========================
                     Screen::DeckBuilder => {
-                        if deck_builder_screen::draw_deck_builder_screen(
+                        let done = deck_builder_screen::draw_deck_builder_screen(
                             ctx,
                             &mut self.deck_builder_state,
                             &self.options_state.deck_builder,
-                        ) {
-                            self.screen = Screen::DeckList;
-                            self.main_menu_focus = 0;
+                        );
+
+                        if done {
+                            match self.save_builder_state_as_deck() {
+                                Err(err) => {
+                                    eprintln!(
+                                        "MorFlash: failed to save deck from builder: {err:?}"
+                                    );
+                                    self.save_notice = Some(SaveNotice {
+                                        message: format!("Failed to save deck: {err}"),
+                                        is_error: true,
+                                        created_at: Instant::now(),
+                                    });
+                                    // Keep user on the builder screen so they can fix it.
+                                }
+                                Ok(path) => {
+                                    self.save_notice = Some(SaveNotice {
+                                        message: format!("Saved deck to {}", path.display()),
+                                        is_error: false,
+                                        created_at: Instant::now(),
+                                    });
+                                    // Successfully saved as .mflash; go back to deck list.
+                                    self.screen = Screen::DeckList;
+                                }
+                            }
                         }
                     }
                 }
             });
+
+        // Draw any active save / error notice as a floating toast.
+        self.show_save_notice(ctx);
     }
 }
+
 // =====================
 // eframe::App impl
 // =====================
